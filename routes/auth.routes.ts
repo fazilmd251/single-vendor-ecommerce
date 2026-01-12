@@ -4,6 +4,6 @@ import { userRegistration } from "../controllers/auth/authController";
 
 const route = express.Router();
 
-route.post('/register-user',userRegistration);
+route.post(Endpoints.REG_USER,userRegistration);
 
 export default route;
