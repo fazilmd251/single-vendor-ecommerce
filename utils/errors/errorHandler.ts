@@ -9,7 +9,7 @@ const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFun
 
     if (!err.isOperational) {
         statusCode = 500;
-        message: "Something went wrong"
+        message="Something went wrong da"
     }
 
     if (env == 'development') {
@@ -21,7 +21,7 @@ const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFun
         })
     }
 
-    return res.status(err.statusCode).json({
+    return res.status(statusCode).json({
         success:false,
         message
     })

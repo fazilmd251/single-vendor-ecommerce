@@ -7,11 +7,10 @@ import { otpService } from "../otp/otp.service";
 
 class AuthService {
     async registerUser(data: RegisterDto) {
-        const { email } = data;
         const mailTemplate = 'user-activation-mail';
         //checking wether valid data in requst body
-        validateRegisterInput({ email });
-
+        validateRegisterInput(data);
+        const email = data.email;
         //checking otp restrictions and tracking requests
         await otpService.checkOtpRestrictions(email);
         await otpService.trackOtpRequests(email);
