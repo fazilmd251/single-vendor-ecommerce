@@ -10,4 +10,11 @@ export const userRegistration = catchAsync(async (req: Request, res: Response, n
     })
 })
 
+export const verifyUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = await authService.verifyUser(req.body);
+    return res.status(200).json({
+        success: true, user
+    })
+});
+
 

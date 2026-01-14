@@ -1,6 +1,6 @@
 import redis from "../../config/redis/redis";
 import crypto from "crypto";
-import { ForbiddenError } from "../../utils/errors/errors";
+import { AuthError, ForbiddenError, ValidationError } from "../../utils/errors/errors";
 import { generateOtp } from "../../utils/otp";
 import { emailService } from "../email/email.service";
 
@@ -13,7 +13,7 @@ export const OTP_CONFIG = {
 };
 
 
-const otpKeys = (email: string) => ({
+export const otpKeys = (email: string) => ({
   otpLock: `otp_lock:${email}`,
   otpSpamLock: `otp_spam_lock:${email}`,
   otpCooldown: `otp_cooldown:${email}`,
@@ -22,6 +22,7 @@ const otpKeys = (email: string) => ({
 });
 
 class OtpService {
+
   async checkOtpRestrictions(email: string) {
     const keys = otpKeys(email);
 
@@ -85,10 +86,48 @@ class OtpService {
     }
   }
 
+async verifyOtp(email: string, otp: string) {
+  const keys = otpKeys(email);
+
+  const storedHash = await redis.get(keys.otp);
+  if (!storedHash) throw new AuthError("Invalid or expired OTP");
+
+  const hashedOtp = this.hashOtp(otp);
+  const otpAttemptsKey = `otp_attempts:${email}`;
+  const failedAttempts = parseInt((await redis.get(otpAttemptsKey)) || "0");
+
+  if (hashedOtp !== storedHash) {
+    const newAttempts = failedAttempts + 1;
+
+    if (newAttempts >= 3) {
+      await redis.set(keys.otpLock, "locked", { ex: OTP_CONFIG.ACCOUNT_LOCK_SEC });
+      await redis.del(keys.otp, otpAttemptsKey);
+      throw new ForbiddenError("Too many failed attempts. Try again later.");
+    }
+
+    await redis.set(otpAttemptsKey, newAttempts.toString(), { ex: OTP_CONFIG.OTP_TTL_SEC });
+    throw new AuthError("Invalid or expired OTP");
+  }
+
+  await redis.del(keys.otp, otpAttemptsKey);
+  return true;
+}
+
+
   // helper for hashing OTP during verification
   hashOtp(otp: string) {
     return crypto.createHash("sha256").update(otp).digest("hex");
   }
+
+  async getStoredotp(email: string) {
+    return await redis.get(otpKeys(email).otp)
+  }
+
+
+  async deleteOtp(email: string) {
+    await redis.del(otpKeys(email).otp);
+  }
+
 }
 
 export const otpService = new OtpService();
